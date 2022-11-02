@@ -2,6 +2,7 @@ from fastapi import Depends, FastAPI, HTTPException, status
 from sqlalchemy.orm import Session
 from db import crud, models, schemas
 from db.database import SessionLocal, engine
+from utils import shortcuts
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -23,24 +24,28 @@ def root():
 
 @app.get("/posts/", response_model=schemas.PostList)
 def get_posts(offset: int = 0, limit: int = 20, db: Session = Depends(get_db)):
-    db_posts = crud.get_posts(db, offset, limit)
+    objects = crud.get_posts(db, offset, limit)
     data = {
-        'results': db_posts,
+        'results': objects,
         'count': db.query(models.Post).count()
     }
     return data
 
 
-@app.post('/posts/create/', status_code=status.HTTP_201_CREATED, response_model=schemas.PostCreate)
+@app.post('/posts/create/', status_code=status.HTTP_201_CREATED, response_model=schemas.Post)
 def create_post(post: schemas.PostCreate, db: Session = Depends(get_db)):
-    db_post = crud.create_post(db, post)
-    return db_post
+    obj = crud.create_post(db, post)
+    return obj
+
+
+@app.put('/posts/{id}/')
+def update_post(id: int, post: schemas.PostUpdate, db: Session = Depends(get_db)):
+    crud.update_post(db, id, post)
+    return None
 
 
 @app.get('/posts/{id}/', response_model=schemas.Post)
 def get_post(id: int, db: Session = Depends(get_db)):
-    db_post = crud.get_post(db, id)
-    if db_post is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND,
-                            detail="The post not find.")
-    return db_post
+    obj = crud.get_post(db, id)
+    shortcuts.get_object_or_404(obj)
+    return obj
